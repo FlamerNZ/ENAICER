@@ -1,0 +1,28 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Personal library data, recordings and derived output stay local
+data/
+out/
+*.wav
+*.mp3
+*.aif
+*.aiff
+*.flac
+*.db
+*.db-wal
+*.db-shm
+*.pdb
+.env
+.DS_Store
+
+# browser automation scratch (screenshots, downloads)
+.playwright-mcp/

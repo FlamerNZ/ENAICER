@@ -1,0 +1,40 @@
+[project]
+name = "enaicer"
+version = "0.1.0"
+description = "Learn EN4CER's DJ mixing style from recorded sets and render new mixes in it"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Brendan Law" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "librosa>=1.0.0",
+    "mido>=1.3.3",
+    "numpy>=2.5.4",
+    "pyloudnorm>=0.2.0",
+    # Pinned: 0.5.0 reads master.db without a key arg and the XDJ-AZ OneLibrary USB DB; parse ANLZ .DAT directly
+    "pyrekordbox==0.5.0",
+    "python-rtmidi>=1.5.8",
+    "scipy>=1.18.1",
+    "soundfile>=0.14.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "matplotlib>=3.11.2",
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# One-off analysis scripts carried over from the first session, kept as they ran; new code goes in src/
+"scripts/*" = ["B023", "C408", "I001", "PLW1510", "RUF007", "SIM115"]
+
+[tool.ruff]
+line-length = 120

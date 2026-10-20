@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blend A/B</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%236ea8fe'/%3E%3C/svg%3E">
+<style>
+  :root{--bg:#0f1115;--card:#181b22;--line:#272b34;--fg:#e8eaed;--dim:#9aa0aa;--accent:#6ea8fe;--good:#5fd38d;--bad:#ff6b6b;--you:#ff9f43}
+  *{box-sizing:border-box} [hidden]{display:none !important}
+  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:22px 16px 80px}
+  h1{font-size:21px;margin:0 0 4px} h2{font-size:15.5px;margin:0}
+  .wrap{max-width:980px;margin:0 auto}
+  .sub{color:var(--dim);margin:0 0 16px;font-size:13px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+  .card.done{border-color:#2f4a38}
+  button{background:#13161c;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:5px 11px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  .head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:10px}
+  .head .num{color:var(--dim);font-variant-numeric:tabular-nums}
+  .src{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .src button{min-width:64px;font-weight:600}
+  .src button.on{border-color:var(--accent);background:#1b2433}
+  .src button.you{color:var(--you)}
+  .player{display:flex;gap:12px;align-items:center}
+  .pp{width:42px;height:42px;border-radius:50%;font-size:15px;padding:0;flex:0 0 auto}
+  .bar{position:relative;flex:1;height:34px;cursor:pointer}
+  .bar .track{position:absolute;left:0;right:0;top:15px;height:4px;background:#2a2f3a;border-radius:2px}
+  .bar .prog{position:absolute;left:0;top:15px;height:4px;background:var(--accent);border-radius:2px}
+  .bar .mk{position:absolute;top:6px;width:2px;height:22px;background:#5a6070;margin-left:-1px}
+  .bar .lb{position:absolute;top:-8px;font-size:10.5px;color:var(--dim);transform:translateX(-50%);white-space:nowrap}
+  .time{font-variant-numeric:tabular-nums;color:var(--dim);font-size:13px;min-width:92px;text-align:right}
+  .rate{display:grid;grid-template-columns:auto auto auto auto;gap:6px 10px;align-items:center;margin-top:12px;font-size:13px;justify-content:start}
+  .rate .l{font-weight:600}
+  .rate .up.on{border-color:var(--good);color:var(--good)} .rate .down.on{border-color:var(--bad);color:var(--bad)}
+  .rate .best.on{border-color:var(--accent);color:var(--accent)}
+  .rate .v{color:var(--dim);font-size:12px}
+  textarea{width:100%;margin-top:10px;background:#12151b;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:13px/1.35 inherit;resize:vertical;min-height:34px}
+  .foot{display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap}
+  .dim{color:var(--dim);font-size:12.5px}
+  .status{position:fixed;right:14px;bottom:12px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12.5px;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Blend A/B: your drills<span id="round"></span></h1>
+<p class="sub">Each pair has three model versions (A, B, C, in a fixed random order) and your own take from the drill. All are at the same loudness and start at the same point in the music, so switching keeps your place: pick a version while it plays to hear the same moment in another. Pick the best, thumb each one, and add a note if something stands out. Everything saves as you click. "Reveal" shows which version is which.</p>
+<div id="pairs"></div>
+</div>
+<div class="status" id="status">not saved yet</div>
+<audio id="audio" preload="auto"></audio>
+<script src="ab_data.js"></script>
+<script>
+const D = window.AB, KEY = "ab:" + D.id, audio = document.getElementById("audio");
+if (D.round > 1) document.getElementById("round").textContent = ` (round ${D.round})`;
+let FB = {}; try { FB = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
+let cur = null; // {pair, src}
+const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+function payload() {
+  const items = D.pairs.map(p => {
+    const f = FB[p.id] || {}, vmap = Object.fromEntries(p.versions.map(v => [v.letter, v.variant]));
+    return { pair: p.id, a: p.a, b: p.b, best: f.best || null, best_variant: f.best === "You" ? "you" : (vmap[f.best] || null),
+             ratings: Object.fromEntries(Object.entries(f.r || {}).map(([k, v]) => [k === "You" ? "you" : vmap[k], v])), note: f.note || "" };
+  });
+  return JSON.stringify({ id: D.id, saved: new Date().toISOString(), items }, null, 1);
+}
+let saveT = null;
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(FB)); } catch (e) {}
+  clearTimeout(saveT);
+  saveT = setTimeout(() => fetch("/feedback/" + D.id, { method: "POST", headers: { "Content-Type": "application/json" }, body: payload() })
+    .then(r => { document.getElementById("status").textContent = r.ok ? "saved " + new Date().toLocaleTimeString() : "save failed: " + r.status; })
+    .catch(() => { document.getElementById("status").textContent = "save failed (kept in this browser)"; }), 300);
+}
+
+function play(p, src) {
+  const url = src === "You" ? p.you : p.versions.find(v => v.letter === src).audio;
+  const t = cur && cur.pair === p.id ? audio.currentTime : 0, was = cur && cur.pair === p.id && !audio.paused;
+  cur = { pair: p.id, src };
+  if (!audio.src.endsWith(url)) { audio.src = url; audio.addEventListener("loadedmetadata", () => { audio.currentTime = Math.min(t, audio.duration - 0.1); audio.play(); }, { once: true }); }
+  else if (!was) audio.play();
+  document.querySelectorAll(".src button").forEach(b => b.classList.toggle("on", b.dataset.pair === p.id && b.dataset.src === src));
+}
+
+function card(p, i) {
+  const f = FB[p.id] = FB[p.id] || { r: {} }, el = document.createElement("div");
+  el.className = "card" + (f.best ? " done" : "");
+  const letters = p.versions.map(v => v.letter);
+  const cue = p.lead_s, b = p.bar_s;
+  // only points every version shares, so the markers don't give one away
+  const marks = [[cue, "incoming cued"], [cue + 8 * b, "fader up"]];
+  el.innerHTML = `
+    <div class="head"><span class="num">${i + 1}</span><h2>${p.a} → ${p.b}</h2></div>
+    <div class="src">${letters.map(l => `<button data-pair="${p.id}" data-src="${l}">${l}</button>`).join("")}<button class="you" data-pair="${p.id}" data-src="You">You</button></div>
+    <div class="player"><button class="pp" aria-label="Play or pause">▶</button>
+      <div class="bar"><div class="track"></div><div class="prog"></div>${marks.map(() => `<div class="mk"></div><div class="lb"></div>`).join("")}</div>
+      <div class="time">0:00 / –</div></div>
+    <div class="rate">${[...letters, "You"].map(l => `<span class="l">${l}</span>
+      <button class="up" data-k="${l}" aria-label="good">👍</button><button class="down" data-k="${l}" aria-label="bad">👎</button>
+      ${l === "You" ? `<span></span>` : `<button class="best" data-k="${l}">best</button>`}`).join("")}
+      <span></span><span></span><span></span><button class="best" data-k="You">mine's best</button></div>
+    <textarea placeholder="Notes (optional)">${f.note || ""}</textarea>
+    <div class="foot"><button class="reveal">Reveal</button><span class="dim key" hidden>${p.versions.map(v => `${v.letter} = ${{ smooth: "smooth (old template)", moves_quick: "your moves, quick bass swap", moves_gradual: "your moves, gradual bass" }[v.variant]}`).join(" · ")}</span></div>`;
+  el.querySelectorAll(".src button").forEach(bt => bt.onclick = () => play(p, bt.dataset.src));
+  const pp = el.querySelector(".pp"), bar = el.querySelector(".bar"), prog = el.querySelector(".prog"), time = el.querySelector(".time");
+  pp.onclick = () => { if (!cur || cur.pair !== p.id) return play(p, letters[0]); audio.paused ? audio.play() : audio.pause(); };
+  bar.onclick = e => { if (!cur || cur.pair !== p.id) play(p, letters[0]); const r = bar.getBoundingClientRect(); const go = () => audio.currentTime = (e.clientX - r.left) / r.width * audio.duration;
+    audio.duration ? go() : audio.addEventListener("loadedmetadata", go, { once: true }); };
+  el.update = () => {
+    const mine = cur && cur.pair === p.id, d = mine && audio.duration ? audio.duration : null;
+    pp.textContent = mine && !audio.paused ? "❚❚" : "▶";
+    prog.style.width = d ? (audio.currentTime / d * 100) + "%" : "0";
+    time.textContent = d ? `${fmt(audio.currentTime)} / ${fmt(d)}` : "0:00 / –";
+    if (d) bar.querySelectorAll(".mk").forEach((m, k) => { const x = Math.min(100, marks[k][0] / d * 100); m.style.left = x + "%"; const lb = bar.querySelectorAll(".lb")[k]; lb.style.left = x + "%"; lb.textContent = marks[k][1]; });
+  };
+  const paint = () => {
+    el.querySelectorAll(".up,.down").forEach(bt => bt.classList.toggle("on", f.r[bt.dataset.k] === (bt.classList.contains("up") ? "good" : "bad")));
+    el.querySelectorAll(".best").forEach(bt => bt.classList.toggle("on", f.best === bt.dataset.k));
+    el.classList.toggle("done", !!f.best);
+  };
+  el.querySelectorAll(".up,.down").forEach(bt => bt.onclick = () => { const v = bt.classList.contains("up") ? "good" : "bad"; f.r[bt.dataset.k] = f.r[bt.dataset.k] === v ? undefined : v; paint(); save(); });
+  el.querySelectorAll(".best").forEach(bt => bt.onclick = () => { f.best = f.best === bt.dataset.k ? null : bt.dataset.k; paint(); save(); });
+  el.querySelector("textarea").oninput = e => { f.note = e.target.value; save(); };
+  el.querySelector(".reveal").onclick = () => el.querySelector(".key").hidden = !el.querySelector(".key").hidden;
+  paint();
+  return el;
+}
+const cards = D.pairs.map(card);
+cards.forEach(c => document.getElementById("pairs").appendChild(c));
+const tick = () => { cards.forEach(c => c.update()); requestAnimationFrame(tick); };
+tick();
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "TEXTAREA" || !cur) return;
+  const p = D.pairs.find(x => x.id === cur.pair), keys = { a: "A", b: "B", c: "C", y: "You" };
+  if (e.key === " ") { e.preventDefault(); audio.paused ? audio.play() : audio.pause(); }
+  else if (keys[e.key.toLowerCase()]) play(p, keys[e.key.toLowerCase()]);
+});
+</script>
+</body>
+</html>

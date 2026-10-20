@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mix Review</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%236ea8fe'/%3E%3C/svg%3E">
+<style>
+  :root{--bg:#0f1115;--card:#181b22;--line:#272b34;--fg:#e8eaed;--dim:#9aa0aa;--accent:#6ea8fe;--out:#ff9f43;--in:#38d0d8;--flag:#ffb020;--good:#5fd38d;--bad:#ff6b6b}
+  *{box-sizing:border-box} [hidden]{display:none !important}
+  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:22px 16px 80px}
+  h1{font-size:21px;margin:0 0 4px} h2{font-size:16px;margin:0 0 10px} h3{font-size:14.5px;margin:0}
+  .wrap{max-width:1180px;margin:0 auto}
+  .sub{color:var(--dim);margin:0 0 16px;font-size:13px;max-width:900px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+  button{background:#13161c;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:5px 11px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)} button.on{border-color:var(--accent);background:#1b2433}
+  .player{display:flex;gap:14px;align-items:center}
+  .pp{width:46px;height:46px;border-radius:50%;font-size:16px;padding:0;flex:0 0 auto}
+  .bar{position:relative;flex:1;height:34px;cursor:pointer}
+  .bar .track{position:absolute;left:0;right:0;top:15px;height:4px;background:#2a2f3a;border-radius:2px}
+  .bar .prog{position:absolute;left:0;top:15px;height:4px;background:var(--accent);border-radius:2px}
+  .bar .tick{position:absolute;top:9px;width:1px;height:16px;background:#4a5060}
+  .bar .mk{position:absolute;top:5px;width:3px;height:24px;background:#5a6070;border-radius:2px;margin-left:-1px}
+  .bar .mk.flag{background:var(--flag)}
+  .time{font-variant-numeric:tabular-nums;color:var(--dim);font-size:13px;min-width:110px;text-align:right}
+  .now-playing{margin-top:8px;font-size:13px;color:var(--dim);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px}
+  @media (max-width:900px){.layout{grid-template-columns:1fr}}
+  .side{position:sticky;top:12px;align-self:start;max-height:calc(100vh - 24px);overflow:auto}
+  .row{display:flex;gap:10px;align-items:baseline;padding:5px 0;border-bottom:1px solid #1f232b;font-size:13px;cursor:pointer}
+  .row:last-child{border-bottom:0} .row:hover{color:var(--accent)}
+  .row .t{font-variant-numeric:tabular-nums;color:var(--dim);min-width:42px}
+  .row.now{color:var(--accent)}
+  .key{font-size:11px;color:var(--dim);margin-left:auto;white-space:nowrap}
+  .tr{scroll-margin-top:12px} .tr.now{border-color:var(--accent)}
+  .tr-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  .tr-head .num{color:var(--dim);font-variant-numeric:tabular-nums}
+  .btns{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 10px}
+  .stats{display:grid;grid-template-columns:auto 1fr 1fr;gap:2px 14px;font-size:12.5px;margin-bottom:8px}
+  .stats .h{color:var(--dim)} .stats .k{color:var(--dim)}
+  .flag-t{color:var(--flag);font-size:12.5px;margin:2px 0 6px}
+  .chart{width:100%;height:auto;display:block;background:#12151b;border-radius:8px}
+  .legend{display:flex;gap:14px;font-size:11.5px;color:var(--dim);margin:6px 0 0;flex-wrap:wrap}
+  .sw{display:inline-block;width:18px;height:0;border-top:2px solid;vertical-align:middle;margin-right:5px}
+  .fb{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  .fb textarea{flex:1;min-width:200px;background:#12151b;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:13px/1.35 inherit;resize:vertical;min-height:34px}
+  .fb .up.on{border-color:var(--good);color:var(--good)} .fb .down.on{border-color:var(--bad);color:var(--bad)} .fb .rush.on{border-color:var(--flag);color:var(--flag)}
+  .dim{color:var(--dim);font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1 id="title">Mix Review</h1>
+<p class="sub" id="sub"></p>
+
+<div class="card">
+  <div class="player">
+    <button class="pp" id="pp" aria-label="Play or pause">▶</button>
+    <div class="bar" id="bar"><div class="track"></div><div class="prog" id="prog"></div></div>
+    <div class="time" id="time">0:00 / 0:00</div>
+  </div>
+  <div class="now-playing" id="refbox" hidden>
+    <span>▶ Playing <b>your practice</b> at <span id="reft">0:00</span></span>
+    <button id="refstop">Stop and go back to the model mix</button>
+  </div>
+  <div class="now-playing">
+    <button id="export">Download my feedback (JSON)</button>
+    <span class="dim" id="saved"></span><span class="dim" style="margin-left:auto">page built <span id="built"></span></span>
+  </div>
+</div>
+
+<div class="layout">
+  <div id="transitions"></div>
+  <div class="card side"><h2>Tracklist</h2><div id="tracks"></div></div>
+</div>
+</div>
+
+<audio id="au" preload="metadata"></audio>
+<audio id="ref" preload="none"></audio>
+<script src="review_data.js"></script>
+<script>
+const R = window.REV, $ = id => document.getElementById(id);
+const fm = s => { s = Math.max(0, s); const m = Math.floor(s / 60), x = Math.floor(s % 60); return m + ":" + String(x).padStart(2, "0"); };
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const short = s => String(s).split(" (")[0];
+const au = $("au"), ref = $("ref"), bar = $("bar");
+au.src = R.mix;
+if (R.ref) ref.src = R.ref.audio;
+document.getElementById("built").textContent = R.built || "";
+$("title").textContent = R.title;
+if (!R.transitions.some(x => x.measured)) $("saved").textContent = "The model's curves are still being measured: reload this page in a few minutes.";
+document.title = R.title;
+$("sub").innerHTML = `${R.tracks.length} tracks, ${fm(R.length_s)}. Each transition card has two buttons: <b>model</b> plays this mix from 8 s before the incoming track starts, and <b>you</b> plays the same incoming track in your ${R.ref ? esc(R.ref.id.replace(/_/g, " ")) : "reference"} recording. The charts show the gain of each deck in each band, measured back from the audio: <span style="color:var(--out)">outgoing</span> and <span style="color:var(--in)">incoming</span>, solid for the model and dashed for you. <span style="color:var(--flag)">Orange</span> marks something worth a listen. Rate each one; your ratings and notes save automatically where Claude can read them.`;
+
+// feedback (kept in this browser; Export to hand it over)
+const KEY = "review:" + R.id;
+let FB = {}; try { FB = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
+const payload = () => JSON.stringify({ id: R.id, saved: new Date().toISOString(), items: R.transitions.map(x => ({ i: x.i, a: x.a, b: x.b, ...(FB[x.i] || {}) })) }, null, 1);
+let timer = null;
+function toDisk() {  // the local server writes it next to the mixes, where Claude can read it
+  fetch("/feedback/" + R.id, { method: "POST", headers: { "Content-Type": "application/json" }, body: payload() })
+    .then(r => { $("saved").textContent = r.ok ? "saved for Claude ✓" : "couldn't save to disk (server said " + r.status + "): use Export"; })
+    .catch(() => { $("saved").textContent = "couldn't reach the local server: use Export"; });
+}
+const save = () => {
+  try { localStorage.setItem(KEY, JSON.stringify(FB)); } catch (e) {}
+  $("saved").textContent = "saving…"; clearTimeout(timer); timer = setTimeout(toDisk, 400);
+};
+if (Object.keys(FB).length) toDisk();  // anything rated before this page could save to disk
+$("export").onclick = () => {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([payload()], { type: "application/json" }));
+  a.download = `review_${R.id}.json`; document.body.appendChild(a); a.click(); a.remove();
+};
+
+// playback
+let active = au;
+function play(el, t) { (el === au ? ref : au).pause(); active = el; el.currentTime = Math.max(0, t); el.play().catch(() => {}); $("refbox").hidden = el !== ref; }
+$("pp").onclick = () => { if (active === ref && !ref.paused) { ref.pause(); return; } au.paused ? play(au, au.currentTime) : au.pause(); };
+$("refstop").onclick = () => { ref.pause(); $("refbox").hidden = true; active = au; };
+bar.onclick = e => { const r = bar.getBoundingClientRect(); if (au.duration) play(au, (e.clientX - r.left) / r.width * au.duration); };
+document.addEventListener("keydown", e => { if (e.code === "Space" && e.target.tagName !== "TEXTAREA") { e.preventDefault(); $("pp").click(); } });
+au.addEventListener("play", () => $("pp").textContent = "⏸");
+au.addEventListener("pause", () => $("pp").textContent = "▶");
+
+// flags: things worth a listen
+function flags(x) {
+  const f = [], m = x.measured;
+  if (x.level_db <= -3) f.push(`level dips ${x.level_db} dB during the blend (you: ${x.ref ? (x.ref.level_db > 0 ? "+" : "") + x.ref.level_db + " dB" : "n/a"})`);
+  if (m && m.gone_before_quiet === false) f.push("outgoing still in at the incoming track's first quiet part");
+  if (m && m.a_played_out) f.push("outgoing ran to the end of its window");
+  if (x.span < 32) f.push(`blend compressed to ${x.span} bars (the incoming track has an early breakdown)`);
+  if (x.key_cost >= 3) f.push(`key jump (cost ${x.key_cost})`);
+  if (x.hat_ms != null && x.hat_ms > 8) f.push(`hats measured ${x.hat_ms} ms apart in the blend: are the beats off?`);
+  return f;
+}
+
+// tracklist
+const tl = $("tracks");
+R.tracks.forEach((t, i) => {
+  const d = document.createElement("div"); d.className = "row";
+  d.innerHTML = `<span class="t">${fm(t.on_s)}</span><span>${esc(short(t.title))}<br><span class="dim">${esc(t.artist)}</span></span><span class="key">${esc(t.key)} · ${t.bpm}→${t.tempo[1].toFixed(1)}</span>`;
+  d.onclick = () => play(au, t.on_s - 8); tl.appendChild(d);
+});
+
+// charts: per transition, from 8 bars before the incoming track starts to 12 s after the outgoing track is gone
+const W = 640, BAND_H = 62, PAD_L = 34, PAD_T = 6, X0 = -8, Y0 = -42, Y1 = 6, GONE = -59;
+const BANDS = ["high", "mid", "low"];
+R.transitions.forEach(x => {
+  const out = Math.max(x.measured?.a_out_bars ?? 32, x.ref?.a_out_bars ?? 0, x.span);
+  x.X1 = Math.min(80, Math.max(48, Math.ceil((out + 12 / x.bar_s) / 8) * 8));
+});
+const xs = (b, x) => PAD_L + (b - X0) / (x.X1 - X0) * (W - PAD_L - 6);
+const bx = (px, x) => X0 + (px - PAD_L) / (W - PAD_L - 6) * (x.X1 - X0);
+const ys = (db, k) => PAD_T + k * BAND_H + (Y1 - Math.max(Y0, Math.min(Y1, db))) / (Y1 - Y0) * (BAND_H - 12);
+function path(m, key, k, x) {
+  if (!m || !m.curves) return "";
+  const bpm = m.bpm_a, t = m.curves.t, v = m.curves[key]; let d = "", pen = false;
+  for (let i = 0; i < t.length; i++) {
+    const b = t[i] * bpm / 240;
+    if (b < X0 || b > x.X1 || v[i] <= GONE) { pen = false; continue; }  // deck not playing: break the line
+    d += (pen ? "L" : "M") + xs(b, x).toFixed(1) + " " + ys(v[i], k).toFixed(1) + " "; pen = true;  // quieter than the floor is drawn on it
+  }
+  return d;
+}
+function chart(x) {
+  const H = PAD_T + 3 * BAND_H + 16;
+  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="gain curves; click or drag to scrub">`;
+  BANDS.forEach((b, k) => {
+    for (const db of [0, -20, -40]) { const y = ys(db, k); s += `<line x1="${PAD_L}" x2="${W - 6}" y1="${y}" y2="${y}" stroke="#262b35"/><text x="${PAD_L - 4}" y="${y + 3}" fill="#6b7280" font-size="9" text-anchor="end">${db}</text>`; }
+    s += `<text x="${W - 9}" y="${ys(-6, k) + 3}" fill="#9aa0aa" font-size="10" text-anchor="end">${b}</text>`;
+    for (const [m, dash] of [[x.ref, "5 4"], [x.measured, ""]]) {
+      s += `<path d="${path(m, "a_" + b, k, x)}" fill="none" stroke="var(--out)" stroke-width="1.6" stroke-dasharray="${dash}" opacity="${dash ? 0.75 : 1}"/>`;
+      s += `<path d="${path(m, "b_" + b, k, x)}" fill="none" stroke="var(--in)" stroke-width="1.6" stroke-dasharray="${dash}" opacity="${dash ? 0.75 : 1}"/>`;
+    }
+  });
+  for (let b = 0; b <= x.X1; b += 8) s += `<text x="${xs(b, x)}" y="${H - 3}" fill="#6b7280" font-size="9" text-anchor="middle">${b}</text>`;
+  s += `<line class="hv" x1="-10" x2="-10" y1="${PAD_T}" y2="${H - 14}" stroke="#6ea8fe" stroke-width="1" opacity="0.6"/>`;
+  s += `<line class="ph" x1="-10" x2="-10" y1="${PAD_T}" y2="${H - 14}" stroke="#e8eaed" stroke-width="1.2" opacity="0.8"/></svg>`;
+  return s;
+}
+const stat = (m, k, f = v => v) => m && m[k] != null ? f(m[k]) : "–";
+const fmtEntry = e => e ? BANDS.slice().reverse().map(b => `${b[0].toUpperCase()} ${e[b] == null ? "–" : e[b]}`).join(" · ") : "–";
+
+// transition cards
+const box = $("transitions");
+R.transitions.forEach(x => {
+  const f = flags(x), m = x.measured, r = x.ref;
+  const c = document.createElement("div"); c.className = "card tr"; c.id = "tr" + x.i;
+  const fb = FB[x.i] || {};
+  c.innerHTML = `
+    <div class="tr-head"><span class="num">${x.i + 1}.</span><h3>${esc(short(x.a))} → ${esc(short(x.b))}</h3>
+      <span class="dim">${fm(x.start_s)} · ${x.tempo.toFixed(2)} bpm · out at bar ${x.a_bar}, in from bar ${x.b_bar + 1}</span></div>
+    ${f.length ? `<div class="flag-t">⚑ ${f.map(esc).join(" · ")}</div>` : ""}
+    <div class="btns"><button class="pm on">▶ model</button>${r ? `<button class="py">▶ you (from ${esc(short(r.a))})</button>` : `<span class="dim">no recording of you mixing into this track</span>`}<span class="dim">click or drag on the chart to scrub the highlighted one</span></div>
+    <div class="stats">
+      <span></span><span class="h">model</span><span class="h">you</span>
+      <span class="k">incoming audible</span><span>${stat(m, "b_in_bars", v => "bar " + v)}</span><span>${stat(r, "b_in_bars", v => "bar " + v)}</span>
+      <span class="k">outgoing gone</span><span>${stat(m, "a_out_bars", v => "bar " + v)}</span><span>${stat(r, "a_out_bars", v => "bar " + v)}</span>
+      <span class="k">blend</span><span>${stat(m, "blend_bars", v => v + " bars")}</span><span>${stat(r, "blend_bars", v => v + " bars")}</span>
+      <span class="k">swap order</span><span>${stat(m, "swap_order", v => v.join(" → "))}</span><span>${stat(r, "swap_order", v => v.join(" → "))}</span>
+      <span class="k">incoming entry dB</span><span>${fmtEntry(m && m.b_entry_db)}</span><span>${fmtEntry(r && r.b_entry_db)}</span>
+      <span class="k">level in blend</span><span>${x.level_db > 0 ? "+" : ""}${x.level_db} dB</span><span>${r ? (r.level_db > 0 ? "+" : "") + r.level_db + " dB" : "–"}</span>
+    </div>
+    ${chart(x)}
+    <div class="legend"><span><span class="sw" style="border-color:var(--out)"></span>outgoing</span><span><span class="sw" style="border-color:var(--in)"></span>incoming</span><span><span class="sw" style="border-color:#9aa0aa"></span>model</span><span><span class="sw" style="border-color:#9aa0aa;border-top-style:dashed"></span>you</span><span>x: bars from the incoming track's start</span></div>
+    <div class="fb">
+      <button class="up ${fb.rating === "good" ? "on" : ""}" aria-label="good">👍</button>
+      <button class="down ${fb.rating === "bad" ? "on" : ""}" aria-label="bad">👎</button>
+      <button class="rush ${fb.rushed ? "on" : ""}">rushed / ran out of time</button>
+      <textarea placeholder="What would you change? (e.g. bring it in 8 bars later, swap the bass sooner)">${esc(fb.note || "")}</textarea>
+    </div>`;
+  // which recording this card's chart scrubs: the model mix, or you
+  let src = "model";
+  const pick = which => { src = which; c.querySelector(".pm").classList.toggle("on", which === "model"); if (r) c.querySelector(".py").classList.toggle("on", which === "you"); };
+  c.querySelector(".pm").onclick = () => { pick("model"); play(au, x.start_s - 8); };
+  if (r) c.querySelector(".py").onclick = () => { pick("you"); play(ref, r.start_s - 8); };
+  const svg = c.querySelector("svg"), hv = svg.querySelector(".hv");
+  const barsAt = e => { const rc = svg.getBoundingClientRect(); return bx((e.clientX - rc.left) / rc.width * W, x); };
+  const seek = (e, start) => {
+    const b = barsAt(e), [el, s0, bs] = src === "you" && r ? [ref, r.start_s, r.bar_s] : [au, x.start_s, x.bar_s];
+    const t = s0 + b * bs;
+    if (start || el !== active || el.paused) play(el, t); else el.currentTime = Math.max(0, t);
+  };
+  let dragging = false;
+  svg.addEventListener("pointerdown", e => { dragging = true; svg.setPointerCapture(e.pointerId); seek(e, true); });
+  svg.addEventListener("pointermove", e => { const p = xs(barsAt(e), x); hv.setAttribute("x1", p); hv.setAttribute("x2", p); if (dragging) seek(e, false); });
+  svg.addEventListener("pointerup", () => { dragging = false; });
+  svg.addEventListener("pointerleave", () => { hv.setAttribute("x1", -10); hv.setAttribute("x2", -10); });
+  svg.style.cursor = "ew-resize"; svg.style.touchAction = "none";
+  const set = (k, v) => { FB[x.i] = { ...(FB[x.i] || {}), [k]: v }; save(); };
+  const up = c.querySelector(".up"), down = c.querySelector(".down"), rush = c.querySelector(".rush");
+  up.onclick = () => { const on = !up.classList.contains("on"); up.classList.toggle("on", on); down.classList.remove("on"); set("rating", on ? "good" : null); };
+  down.onclick = () => { const on = !down.classList.contains("on"); down.classList.toggle("on", on); up.classList.remove("on"); set("rating", on ? "bad" : null); };
+  rush.onclick = () => { const on = !rush.classList.contains("on"); rush.classList.toggle("on", on); set("rushed", on); };
+  c.querySelector("textarea").oninput = e => set("note", e.target.value);
+  box.appendChild(c);
+});
+
+// markers on the progress bar, playheads on the charts, highlight what's playing
+au.addEventListener("loadedmetadata", () => {
+  const D = au.duration;
+  R.tracks.forEach(t => { const d = document.createElement("div"); d.className = "tick"; d.style.left = (t.on_s / D * 100) + "%"; bar.appendChild(d); });
+  R.transitions.forEach(x => {
+    const d = document.createElement("div"); d.className = "mk" + (flags(x).length ? " flag" : ""); d.style.left = (x.start_s / D * 100) + "%";
+    d.title = `${x.i + 1}. ${short(x.a)} → ${short(x.b)}`; d.onclick = e => { e.stopPropagation(); play(au, x.start_s - 8); $("tr" + x.i).scrollIntoView({ behavior: "smooth" }); };
+    bar.appendChild(d);
+  });
+});
+function tick() {
+  const t = active.currentTime;
+  if (active === au && au.duration) { $("prog").style.width = (t / au.duration * 100) + "%"; $("time").textContent = fm(t) + " / " + fm(au.duration); }
+  if (active === ref) $("reft").textContent = fm(t);
+  let cur = -1; R.tracks.forEach((x, i) => { if (active === au && t >= x.on_s - 1) cur = i; });
+  document.querySelectorAll("#tracks .row").forEach((r, i) => r.classList.toggle("now", i === cur));
+  R.transitions.forEach(x => {
+    const src = active === au ? { s: x.start_s, b: x.bar_s } : x.ref ? { s: x.ref.start_s, b: x.ref.bar_s } : null;
+    const el = $("tr" + x.i), ph = el.querySelector(".ph");
+    const bars = src ? (t - src.s) / src.b : -99, on = !active.paused && bars >= X0 && bars <= x.X1;
+    el.classList.toggle("now", on);
+    ph.setAttribute("x1", on ? xs(bars, x) : -10); ph.setAttribute("x2", on ? xs(bars, x) : -10);
+  });
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
